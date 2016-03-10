@@ -187,10 +187,10 @@ fix_camera () {
 fix_ov7670() {                                                      
   case $VIDEO_PORT in  
     0)
-      i2cset -y 0x1 0x21 0x13 0x86
+      i2cset -y 0x1 0x21 0x13 0x85
       ;;
     1)
-      i2cset -y 0x2 0x21 0x13 0x86
+      i2cset -y 0x2 0x21 0x13 0x85
       ;;
   esac
 }
