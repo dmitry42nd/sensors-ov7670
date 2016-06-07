@@ -20,7 +20,7 @@ MEDIA_SENSOR_LOG=/var/log/dsp.log
 MEDIA_SENSOR_CMD=status
 VERBOSE_LVL=1
 DEBUG='> /dev/null 2>&1'
-  
+
 log() {
   if [[ $2 -le $VERBOSE_LVL ]] ; then
     printf "$MEDIA_SENSOR_NAME: $1\n"
@@ -49,7 +49,7 @@ check_dsp_busy() {
 }
 
 include_defaults() {
-  [ -f /etc/default/$MEDIA_SENSOR_NAME.default ] && . /etc/default/$MEDIA_SENSOR_NAME.default 
+  [ -f /etc/default/$MEDIA_SENSOR_NAME.default ] && . /etc/default/$MEDIA_SENSOR_NAME.default
 }
 
 parse_flags() {
@@ -123,10 +123,12 @@ do_start() {
   cd $MEDIA_SENSOR_PATH
   clean_caches_plug
   init_camera
+  eval "DEFAULT_OPS=$DEFAULT_OPS"
   start-stop-daemon -Svb -p $MEDIA_SENSOR_PID -m -a /bin/bash -- -c "exec $MEDIA_SENSOR_PATH/$MEDIA_SENSOR_NAME $DEFAULT_OPS >$MEDIA_SENSOR_LOG 2>&1"
   sleep 1    # wait for exposure stabilized
   fix_camera # fix exposure
   #check if actualy started
+  sleep 2
   debug status $MEDIA_SENSOR_PATH/$MEDIA_SENSOR_NAME || { log "sensor start failed!" 0 ; exit 1 ; }
 }
 
@@ -144,9 +146,6 @@ init_camera () {
   case $MEDIA_SENSOR_NAME in
     *-ov7670)
       init_ov7670 || { log "ov7670 init failed" 0 ; exit 1 ; }
-      log "ov7670 inited" 2
-      ;;
-    *-webcam)
       init_webcam || { log "webcam init failed" 0 ; exit 1 ; }
       log "webcam inited" 2
       ;;
@@ -203,8 +202,8 @@ fix_webcam() {
 
 . /etc/init.d/functions
 
+include_defaults
 parse_flags $@
 check_if_debug
-include_defaults
 check_sensor
 do_cmd
