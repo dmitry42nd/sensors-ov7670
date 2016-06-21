@@ -43,7 +43,7 @@ check_dsp_busy() {
     pid=`cat $MEDIA_SENSOR_PID`
     if debug kill -s 0 $pid ; then
       log "DSP is busy $MEDIA_SENSOR_PID: $pid" 0
-      do_stop
+      kill $pid
       #exit 1
     else
       rm $MEDIA_SENSOR_PID
