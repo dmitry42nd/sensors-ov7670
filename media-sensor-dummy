@@ -1,0 +1,86 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:          app
+# Required-Start:    
+# Required-Stop:     
+# Should-Start:      
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: start trik media sensor
+### END INIT INFO
+
+CURRENT_MEDIA_SENSOR_NAME=current-media-sensor
+CURRENT_MEDIA_SENSOR_PATH=/etc/trik/$CURRENT_MEDIA_SENSOR_NAME
+
+MEDIA_SENSOR_NAME=$(basename $0)
+MEDIA_SENSOR_PID=/var/run/dsp.pid
+MEDIA_SENSOR_LOG=/var/log/dsp.log
+MEDIA_SENSOR_CMD=status
+VERBOSE_LVL=1
+DEBUG='> /dev/null 2>&1'
+
+log() {
+  if [[ $2 -le $VERBOSE_LVL ]] ; then
+    printf "$MEDIA_SENSOR_NAME: $1\n"
+  fi
+}
+
+parse_flags() {
+  while [[ $# > 0 ]]
+  do
+    key="$1"
+    case $key in
+      start|stop|reload)
+        MEDIA_SENSOR_CMD=$key
+        ;;
+      *)
+        log "unknown option: $key" 0
+        log "it's just dummy sleepy daemon: start|stop|reload" 0
+        exit 1
+        ;;
+    esac
+    shift
+  done
+}
+
+do_cmd() {
+  case $MEDIA_SENSOR_CMD in
+    start)
+      do_start
+      log "daemon started" 1
+      ;;
+    stop)
+      do_stop
+      log "daemon stoped" 1
+      ;;
+    reload)
+      do_reload
+      log "daemon reloaded" 1
+      ;;
+    *)
+      log "it's just dummy sleepy daemon: start|stop|reload" 0
+      exit 1
+  esac
+}
+
+do_reload() {
+  sleep 600 &
+  wait
+}
+
+do_start() {
+  echo -e "#!/bin/sh\n $0 reload" > $CURRENT_MEDIA_SENSOR_PATH
+  killall -g $CURRENT_MEDIA_SENSOR_NAME
+}
+
+do_stop() {
+  do_start
+}
+
+###BEGIN###
+
+. /etc/init.d/functions
+
+parse_flags $@
+do_cmd

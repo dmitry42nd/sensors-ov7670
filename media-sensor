@@ -10,6 +10,9 @@
 # Short-Description: start trik media sensor
 ### END INIT INFO
 
+CURRENT_MEDIA_SENSOR_NAME=current-media-sensor
+CURRENT_MEDIA_SENSOR_PATH=/etc/trik/$CURRENT_MEDIA_SENSOR_NAME
+
 MEDIA_SENSOR_NAME=$(basename $0)
 #back compatibility name parsing
 [ $MEDIA_SENSOR_NAME==*.sh ] && MEDIA_SENSOR_NAME=${MEDIA_SENSOR_NAME%.*}
@@ -40,7 +43,8 @@ check_dsp_busy() {
     pid=`cat $MEDIA_SENSOR_PID`
     if debug kill -s 0 $pid ; then
       log "DSP is busy $MEDIA_SENSOR_PID: $pid" 0
-      exit 1
+      do_stop
+      #exit 1
     else
       rm $MEDIA_SENSOR_PID
       log "process was dead $MEDIA_SENSOR_PID: $pid" 2
@@ -71,7 +75,7 @@ parse_flags() {
         VERBOSE_LVL=$2
         shift
         ;;
-      start|stop|restart|status)
+      start|stop|restart|reload|status)
         MEDIA_SENSOR_CMD=$key
         ;;
       *)
@@ -108,6 +112,10 @@ do_cmd() {
       do_start
       log "daemon restarted" 1
       ;;
+    reload)
+      do_reload
+      log "daemon reloaded" 1
+      ;;
     status)
       status $MEDIA_SENSOR_PATH/$MEDIA_SENSOR_NAME
       exit $?
@@ -118,22 +126,30 @@ do_cmd() {
   esac
 }
 
-do_start() {
+do_reload() {
   check_dsp_busy
   cd $MEDIA_SENSOR_PATH
   clean_caches_plug
   init_camera
   eval "DEFAULT_OPS=$DEFAULT_OPS"
-  start-stop-daemon -Svb -p $MEDIA_SENSOR_PID -m -a /bin/bash -- -c "exec $MEDIA_SENSOR_PATH/$MEDIA_SENSOR_NAME $DEFAULT_OPS >$MEDIA_SENSOR_LOG 2>&1"
+  $MEDIA_SENSOR_PATH/$MEDIA_SENSOR_NAME $DEFAULT_OPS >$MEDIA_SENSOR_LOG 2>&1 & echo $! > $MEDIA_SENSOR_PID
   sleep 1    # wait for exposure stabilized
   fix_camera # fix exposure
   #check if actualy started
   sleep 2
-  debug status $MEDIA_SENSOR_PATH/$MEDIA_SENSOR_NAME || { log "sensor start failed!" 0 ; exit 1 ; }
+  debug status $MEDIA_SENSOR_PATH/$MEDIA_SENSOR_NAME || { log "sensor start failed!" 0 ; do_stop; exit 1 ; }
+  wait
+}
+
+do_start() {
+  echo -e "#!/bin/sh\n $0 reload" > $CURRENT_MEDIA_SENSOR_PATH
+  killall -g $CURRENT_MEDIA_SENSOR_NAME
 }
 
 do_stop() {
-  debug start-stop-daemon -Kvx $MEDIA_SENSOR_PATH/$MEDIA_SENSOR_NAME && rm $MEDIA_SENSOR_PID
+  rm $MEDIA_SENSOR_PID
+  echo -e "#!/bin/sh\n /etc/init.d/media-sensor-dummy reload" > $CURRENT_MEDIA_SENSOR_PATH
+  killall -g $CURRENT_MEDIA_SENSOR_NAME
 }
 
 clean_caches_plug() {
@@ -145,8 +161,11 @@ clean_caches_plug() {
 init_camera () {
   case $MEDIA_SENSOR_NAME in
     *-ov7670)
-      init_ov7670 || { log "ov7670 init failed" 0 ; exit 1 ; }
-      init_webcam || { log "webcam init failed" 0 ; exit 1 ; }
+      init_ov7670 || { log "ov7670 init failed" 0 ; do_stop; exit 1 ; }
+      log "ov7670 inited" 2
+      ;;
+    *-webcam)
+      init_webcam || { log "webcam init failed" 0 ; do_stop; exit 1 ; }
       log "webcam inited" 2
       ;;
     *)
@@ -169,11 +188,11 @@ init_webcam() {
 fix_camera () {
   case $MEDIA_SENSOR_NAME in
     *-ov7670)
-      fix_ov7670 || { log "ov7670 fix failed" 0 ; exit 1 ; }
+      fix_ov7670 || { log "ov7670 fix failed" 0 ; do_stop; exit 1 ; }
       log "ov7670 fixed" 2
       ;;
     *-webcam)
-      fix_webcam || { log "webcam fix failed" 0 ; exit 1 ; }
+      fix_webcam || { log "webcam fix failed" 0 ; do_stop; exit 1 ; }
       log "webcam fixed" 2
       ;;
     *)
